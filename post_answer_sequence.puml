@@ -1,0 +1,55 @@
+@startuml POST a new answer
+
+actor Client
+participant AnswerController
+participant AnswerService
+participant AnswerRepository
+participant AnswerModel
+participant QuestionModel
+
+Client -> AnswerController: POST /answer/addAnswer\n{qid, ans}
+activate AnswerController
+
+AnswerController -> AnswerService: addAnswer(qid, answerData)
+activate AnswerService
+
+AnswerService -> AnswerRepository: addAnswer(qid, answerData)
+activate AnswerRepository
+
+AnswerRepository -> AnswerModel: new Answer(answerData)
+activate AnswerModel
+AnswerModel --> AnswerRepository: answer
+deactivate AnswerModel
+
+AnswerRepository -> AnswerModel: save()
+activate AnswerModel
+AnswerModel --> AnswerRepository: savedAnswer
+deactivate AnswerModel
+
+AnswerRepository -> QuestionModel: findById(qid)
+activate QuestionModel
+QuestionModel --> AnswerRepository: question
+deactivate QuestionModel
+
+alt question found
+    AnswerRepository -> QuestionModel: addAnswer(answerId)
+    activate QuestionModel
+    QuestionModel --> AnswerRepository: updatedQuestion
+    deactivate QuestionModel
+    AnswerRepository --> AnswerService: answer result
+else question not found
+    AnswerRepository --> AnswerService: null
+end
+deactivate AnswerRepository
+
+AnswerService --> AnswerController: result
+deactivate AnswerService
+
+alt result is null
+    AnswerController --> Client: 404 Not Found
+else
+    AnswerController --> Client: answer (JSON)
+end
+deactivate AnswerController
+
+@enduml 

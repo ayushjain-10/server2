@@ -1,0 +1,64 @@
+@startuml GET all questions based on a given order
+
+actor Client
+participant QuestionController
+participant QuestionService
+participant SearchStrategyFactory
+participant DefaultSearchStrategy
+participant QuestionRepository
+participant QuestionModel
+
+Client -> QuestionController: GET /question/getQuestion?order={order}
+activate QuestionController
+
+QuestionController -> QuestionService: getQuestions(order, search)
+activate QuestionService
+
+QuestionService -> SearchStrategyFactory: createStrategy(search)
+activate SearchStrategyFactory
+note right: When no search parameter is provided,\nDefaultSearchStrategy is created
+
+SearchStrategyFactory --> QuestionService: DefaultSearchStrategy
+deactivate SearchStrategyFactory
+
+QuestionService -> DefaultSearchStrategy: execute(order)
+activate DefaultSearchStrategy
+
+DefaultSearchStrategy -> QuestionRepository: getQuestionsByOrder(order)
+activate QuestionRepository
+
+alt order == "newest"
+    QuestionRepository -> QuestionModel: getNewestQuestions()
+    activate QuestionModel
+    QuestionModel --> QuestionRepository: questions
+    deactivate QuestionModel
+else order == "unanswered"
+    QuestionRepository -> QuestionModel: getUnansweredQuestions()
+    activate QuestionModel
+    QuestionModel --> QuestionRepository: questions
+    deactivate QuestionModel
+else order == "active"
+    QuestionRepository -> QuestionModel: getActiveQuestions()
+    activate QuestionModel
+    QuestionModel --> QuestionRepository: questions
+    deactivate QuestionModel
+else default (order not specified)
+    QuestionRepository -> QuestionModel: getNewestQuestions()
+    activate QuestionModel
+    QuestionModel --> QuestionRepository: questions
+    deactivate QuestionModel
+end
+
+QuestionRepository --> DefaultSearchStrategy: questions
+deactivate QuestionRepository
+
+DefaultSearchStrategy --> QuestionService: questions
+deactivate DefaultSearchStrategy
+
+QuestionService --> QuestionController: questions
+deactivate QuestionService
+
+QuestionController --> Client: questions (JSON)
+deactivate QuestionController
+
+@enduml 

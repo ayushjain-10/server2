@@ -1,0 +1,374 @@
+openapi: 3.0.0
+info:
+  title: Fake StackOverflow REST API
+  version: 1.0.0
+  description: |
+    API for managing questions, answers, and tags of a fake stack overflow application.
+
+    The API is organized into three main routes:
+    * Tags route: Managing tags and their statistics
+    * Questions route: Managing questions and their operations
+    * Answers route: Managing answers to questions
+
+servers:
+  - url: http://localhost:8000
+    description: Development server for the Fake StackOverflow REST API.
+
+tags:
+  - name: Tags
+    description: Operations related to tags
+  - name: Questions
+    description: Operations related to questions
+  - name: Answers
+    description: Operations related to answers
+
+components:
+  responses:
+    BadRequest:
+      description: Bad Request - Validation failed
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    InternalServerError:
+      description: Internal Server Error
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+                example: "Internal Server Error"
+  schemas:
+    Tag:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "679846196243c96505ba4007"
+        name:
+          type: string
+          nullable: true
+          example: "react"
+        __v:
+          type: integer
+          example: 0
+
+    TagCount:
+      type: object
+      properties:
+        name:
+          type: string
+          nullable: true
+          example: "react"
+        qcnt:
+          type: integer
+          example: 1
+
+    Answer:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "679d61405af1815cc9398a86"
+        text:
+          type: string
+          example: You can solve your problem this way.
+        ans_by:
+          type: string
+          example: user-name
+        ans_date_time:
+          type: string
+          format: date-time
+          example: "2025-02-02T00:28:19.406Z"
+        __v:
+          type: integer
+          example: 0
+
+    Question:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: 679846196243c96505ba4007
+        title:
+          type: string
+          example: Question title
+        text:
+          type: string
+          example: This explains the question further
+        tags:
+          type: array
+          items:
+            $ref: "#/components/schemas/Tag"
+        answers:
+          type: array
+          items:
+          # oneOf is used to allow both answer IDs and answer objects answers in a question
+            oneOf:
+              - type: string # For answer IDs
+                example: "679846196243c96505ba4007"
+              - $ref: "#/components/schemas/Answer"
+                example: 
+                  _id: "679d61405af1815cc9398a86"
+                  text: "You can solve your problem this way."
+                  ans_by: "user-name"
+                  ans_date_time: "2025-02-02T00:28:19.406Z"
+        asked_by:
+          type: string
+          example: user-name
+        ask_date_time:
+          type: string
+          format: date-time
+          example: "2025-02-02T00:28:19.406Z"
+        views:
+          type: integer
+          default: 0
+          example: 0
+        __v:
+          type: integer
+          example: 0
+
+    AddAnswerRequest:
+      type: object
+      required:
+        - qid
+        - ans
+      properties:
+        qid:
+          type: string
+          example: "679846196243c96505ba4007"
+        ans:
+          type: object
+          required:
+            - text
+            - ans_by
+            - ans_date_time
+          properties:
+            text:
+              type: string
+              example: "It might be beneficial to do it this way."
+            ans_by:
+              type: string
+              example: "user-name"
+            ans_date_time:
+              type: string
+              format: date-time
+              example: "2025-02-02T00:28:19.406Z"
+
+    AddQuestionRequest:
+      type: object
+      required:
+        - title
+        - text
+        - tags
+        - asked_by
+        - ask_date_time
+      properties:
+        title:
+          type: string
+          minLength: 1
+          pattern: '^\s*\S+.*$' 
+          example: What can I do to resolve this error?
+        text:
+          type: string
+          minLength: 1
+          pattern: '^\s*\S+.*$' 
+          example: More context regarding the question
+        tags:
+          type: array
+          minItems: 1
+          maxItems: 5
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+            required:
+              - name
+        asked_by:
+          minLength: 1
+          pattern: '^\s*\S+.*$' 
+          type: string
+          example: "user-name"
+        ask_date_time:
+          type: string
+          format: date-time
+          example: "2025-02-02T00:28:19.406Z"
+
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Validation failed"
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              path:
+                type: string
+                example: ".body.name"
+              message:
+                type: string
+                example: "must be string"
+              errorCode:
+                type: string
+                example: "type.openapi.validation"
+
+paths:
+  # Tags Controller Endpoints
+  /tag/getTagsWithQuestionNumber:
+    get:
+      tags:
+        - Tags
+      summary: Get all tags with their question counts
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TagCount"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  # Questions Controller Endpoints
+  /question/addQuestion:
+    post:
+      tags:
+        - Questions
+      summary: Add a new question
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddQuestionRequest"
+      responses:
+        "200":
+          description: Question added successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Question"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /question/getQuestionById/{qid}:
+    get:
+      tags:
+        - Questions
+      summary: Get question by ID
+      parameters:
+        - name: qid
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "679846196243c96505ba4007"
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Question"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          description: Question not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Question not found"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /question/getQuestion:
+    get:
+      tags:
+        - Questions
+      summary: Get filtered questions
+      parameters:
+        - name: order
+          in: query
+          required: false
+          schema:
+            type: string
+            default: newest
+            example: "newest"
+          description: Order of questions (e.g., newest)
+        - name: search
+          in: query
+          required: false
+          allowEmptyValue: true
+          schema:
+            type: string
+            example: Android studio [mobile]
+          description: Search term to filter questions
+          explode: true
+          allowReserved: true
+          x-express-openapi-validator:
+            allowReservedCharacters: true
+
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Question"
+                minItems: 0
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  # Answers Controller Endpoints
+  /answer/addAnswer:
+    post:
+      tags:
+        - Answers
+      summary: Add a new answer to a question
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddAnswerRequest"
+      responses:
+        "200":
+          description: Answer added successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Answer"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          description: Question not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Question not found"
+        "500":
+          $ref: "#/components/responses/InternalServerError"

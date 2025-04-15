@@ -1,0 +1,165 @@
+@startuml Server Architecture
+
+' Models
+class IQuestionDocument {
+  _id: mongoose.Types.ObjectId
+  title: string
+  text: string
+  asked_by: string
+  ask_date_time: Date
+  views: number
+  answers: mongoose.Types.Array<mongoose.Types.ObjectId>
+  tags: mongoose.Types.ObjectId[]
+  +incrementViews(): Promise<IQuestionDocument>
+  +addAnswer(answerId: mongoose.Types.ObjectId): Promise<IQuestionDocument>
+  +hasAnswers: boolean
+  +mostRecentActivity: Date
+}
+
+class IAnswerDocument {
+  _id: mongoose.Types.ObjectId
+  text: string
+  ans_by: string
+  ans_date_time: Date
+}
+
+class ITagDocument {
+  _id: mongoose.Types.ObjectId
+  name: string
+}
+
+class IQuestionModel {
+  +getNewestQuestions(): Promise<IQuestion[]>
+  +getUnansweredQuestions(): Promise<IQuestion[]>
+  +getActiveQuestions(): Promise<IQuestion[]>
+  +findByIdAndIncrementViews(qid: string): Promise<IQuestion | null>
+}
+
+class IAnswerModel {
+  +getMostRecent(answers: mongoose.Types.ObjectId[]): Promise<IAnswerDocument[]>
+  +getLatestAnswerDate(answers: Array<IAnswerDB | object>): Promise<Date | undefined>
+}
+
+class ITagModel {
+  +findOrCreateMany(tagNames: string[]): Promise<ITag[]>
+  +validateTags(tagIds: mongoose.Types.ObjectId[]): Promise<boolean>
+}
+
+' Repositories
+class QuestionRepository {
+  +addQuestion(questionData): Promise<Record<string, unknown>>
+  +getQuestionById(qid: string): Promise<Record<string, unknown> | null>
+  +getQuestionsByQuery(query: Record<string, unknown>, order?: string): Promise<Record<string, unknown>[]>
+  +getQuestionsByOrder(order?: string): Promise<Record<string, unknown>[]>
+  +findQuestionByTitle(title: string): Promise<Record<string, unknown> | null>
+}
+
+class AnswerRepository {
+  +addAnswer(qid: string, answerData): Promise<Record<string, unknown> | null>
+}
+
+class TagRepository {
+  +findOrCreateTags(tagNames: string[]): Promise<mongoose.Types.ObjectId[]>
+  +getTagsWithQuestionNumber(): Promise<{name: string, qcnt: number}[]>
+}
+
+' Services
+class QuestionService {
+  +addQuestion(questionData): Promise<Record<string, unknown>>
+  +getQuestionById(qid: string): Promise<Record<string, unknown> | null>
+  +getQuestions(order?: string, search?: string): Promise<Record<string, unknown>[]>
+}
+
+class AnswerService {
+  +addAnswer(qid: string, answerData): Promise<Record<string, unknown> | null>
+}
+
+class TagService {
+  +getTagsWithQuestionNumber(): Promise<{name: string, qcnt: number}[]>
+  +findOrCreateTags(tagNames: string[]): Promise<mongoose.Types.ObjectId[]>
+}
+
+' Controllers
+class QuestionController {
+  +addQuestion(req: Request, res: Response, next: NextFunction): Promise<void>
+  +getQuestionById(req: Request, res: Response, next: NextFunction): Promise<void>
+  +getQuestions(req: Request, res: Response, next: NextFunction): Promise<void>
+}
+
+class AnswerController {
+  +addAnswer(req: Request, res: Response, next: NextFunction): Promise<void>
+}
+
+class TagController {
+  +getTagsWithQuestionNumber(req: Request, res: Response, next: NextFunction): Promise<void>
+}
+
+' Strategy Pattern
+interface SearchStrategy {
+  +execute(order?: string, search?: string): Promise<Record<string, unknown>[]>
+}
+
+class DefaultSearchStrategy {
+  +execute(order?: string): Promise<Record<string, unknown>[]>
+}
+
+class SpecialSearchStrategy {
+  +execute(): Promise<Record<string, unknown>[]>
+}
+
+class RegularSearchStrategy {
+  -tagSearchTerms: string[]
+  -regularSearchTerms: string[]
+  +constructor(tagSearchTerms: string[], regularSearchTerms: string[])
+  +execute(order?: string): Promise<Record<string, unknown>[]>
+  -findTagIds(): Promise<mongoose.Types.ObjectId[] | null>
+  -buildQuery(tagIds: mongoose.Types.ObjectId[] | null): Record<string, unknown>
+}
+
+class SearchStrategyFactory {
+  +{static} createStrategy(search?: string): SearchStrategy
+  -{static} parseSearchTerms(searchStr: string): { tagSearchTerms: string[], regularSearchTerms: string[] }
+  -{static} isSpecialSearch(regularSearchTerms: string[], tagSearchTerms: string[]): boolean
+}
+
+' Relationships
+
+' Models relationships
+IQuestionModel ..|> IQuestionDocument : <<instantiates>>
+IAnswerModel ..|> IAnswerDocument : <<instantiates>>
+ITagModel ..|> ITagDocument : <<instantiates>>
+
+' Repository relationships
+QuestionRepository ..> IQuestionModel : <<uses>>
+AnswerRepository ..> IAnswerModel : <<uses>>
+TagRepository ..> ITagModel : <<uses>>
+
+' Service relationships
+QuestionService ..> QuestionRepository : <<uses>>
+QuestionService ..> TagRepository : <<uses>>
+QuestionService ..> SearchStrategyFactory : <<uses>>
+AnswerService ..> AnswerRepository : <<uses>>
+TagService ..> TagRepository : <<uses>>
+
+' Controller relationships
+QuestionController ..> QuestionService : <<uses>>
+AnswerController ..> AnswerService : <<uses>>
+TagController ..> TagService : <<uses>>
+
+' Strategy relationships
+SearchStrategy <|.. DefaultSearchStrategy : <<implements>>
+SearchStrategy <|.. SpecialSearchStrategy : <<implements>>
+SearchStrategy <|.. RegularSearchStrategy : <<implements>>
+SearchStrategyFactory ..> SearchStrategy : <<creates>>
+SearchStrategyFactory ..> DefaultSearchStrategy : <<creates>>
+SearchStrategyFactory ..> SpecialSearchStrategy : <<creates>>
+SearchStrategyFactory ..> RegularSearchStrategy : <<creates>>
+DefaultSearchStrategy ..> QuestionRepository : <<uses>>
+SpecialSearchStrategy ..> QuestionRepository : <<uses>>
+RegularSearchStrategy ..> QuestionRepository : <<uses>>
+
+' Document relationships
+IQuestionDocument o-- IAnswerDocument : contains >
+IQuestionDocument o-- ITagDocument : tagged with >
+
+@enduml 

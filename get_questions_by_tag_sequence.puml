@@ -1,0 +1,65 @@
+@startuml GET all questions for a tag
+
+actor Client
+participant QuestionController
+participant QuestionService
+participant SearchStrategyFactory
+participant RegularSearchStrategy
+participant TagModel
+participant QuestionRepository
+participant QuestionModel
+
+Client -> QuestionController: GET /question/getQuestion?search=[tag]
+activate QuestionController
+
+QuestionController -> QuestionService: getQuestions(order, search="[tag]")
+activate QuestionService
+
+QuestionService -> SearchStrategyFactory: createStrategy("[tag]")
+activate SearchStrategyFactory
+
+SearchStrategyFactory -> SearchStrategyFactory: parseSearchTerms("[tag]")
+note right: Extracts "tag" from [tag] syntax
+
+SearchStrategyFactory --> QuestionService: RegularSearchStrategy(["tag"], [])
+deactivate SearchStrategyFactory
+
+QuestionService -> RegularSearchStrategy: execute(order)
+activate RegularSearchStrategy
+
+RegularSearchStrategy -> RegularSearchStrategy: findTagIds()
+activate RegularSearchStrategy
+note right: Internal method call
+
+RegularSearchStrategy -> TagModel: find({name: {$in: ["tag"]}})
+activate TagModel
+TagModel --> RegularSearchStrategy: matchingTags
+deactivate TagModel
+
+RegularSearchStrategy -> RegularSearchStrategy: buildQuery(tagIds)
+deactivate RegularSearchStrategy
+activate RegularSearchStrategy
+note right: Builds query with tag filter
+deactivate RegularSearchStrategy
+
+RegularSearchStrategy -> QuestionRepository: getQuestionsByQuery({tags: {$in: tagIds}}, order)
+activate QuestionRepository
+
+QuestionRepository -> QuestionModel: find(query)
+activate QuestionModel
+QuestionModel --> QuestionRepository: questions
+deactivate QuestionModel
+
+QuestionRepository --> RegularSearchStrategy: questions
+deactivate QuestionRepository
+
+RegularSearchStrategy --> QuestionService: questions
+deactivate RegularSearchStrategy
+
+QuestionService --> QuestionController: questions
+deactivate QuestionService
+
+QuestionController --> Client: questions (JSON)
+deactivate QuestionController
+
+@enduml 
